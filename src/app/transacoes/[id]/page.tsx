@@ -4,6 +4,7 @@ import { ArrowLeft } from "lucide-react";
 import { TransactionForm } from "@/components/transaction-form";
 import { distinctBanks, distinctCategories } from "@/server/suggestions";
 import { findTransactionById } from "@/server/transactions/repository";
+import { requireUserId } from "@/server/auth/require-user";
 import { buttonVariants } from "@/components/ui/button";
 
 export const dynamic = "force-dynamic";
@@ -11,11 +12,11 @@ export const dynamic = "force-dynamic";
 type Props = { params: Promise<{ id: string }> };
 
 export default async function EditTransactionPage({ params }: Props) {
-  const { id } = await params;
+  const [userId, { id }] = await Promise.all([requireUserId(), params]);
   const [transaction, banks, categories] = await Promise.all([
-    findTransactionById(id),
-    distinctBanks(),
-    distinctCategories(),
+    findTransactionById(userId, id),
+    distinctBanks(userId),
+    distinctCategories(userId),
   ]);
 
   if (!transaction || transaction.deletedAt) {

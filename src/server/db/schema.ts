@@ -10,10 +10,39 @@ import {
   uuid,
 } from "drizzle-orm/pg-core";
 
+export const users = pgTable("users", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  email: text("email").notNull().unique(),
+  passwordHash: text("password_hash").notNull(),
+  name: text("name"),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
+export const invites = pgTable(
+  "invites",
+  {
+    code: text("code").primaryKey(),
+    email: text("email"),
+    createdBy: text("created_by").notNull(),
+    usedBy: uuid("used_by").references(() => users.id, { onDelete: "set null" }),
+    usedAt: timestamp("used_at", { withTimezone: true }),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [index("invites_used_by_idx").on(t.usedBy)],
+);
+
 export const transactions = pgTable(
   "transactions",
   {
     id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
     type: text("type").notNull(),
     description: text("description").notNull(),
     amountCents: integer("amount_cents").notNull(),
@@ -32,11 +61,19 @@ export const transactions = pgTable(
   (t) => [
     check("transactions_type_check", sql`${t.type} in ('income','expense')`),
     check("transactions_amount_positive", sql`${t.amountCents} > 0`),
-    index("transactions_occurred_on_idx").on(t.occurredOn),
-    index("transactions_type_occurred_on_idx").on(t.type, t.occurredOn),
+    index("transactions_user_occurred_on_idx").on(t.userId, t.occurredOn),
+    index("transactions_user_type_occurred_on_idx").on(
+      t.userId,
+      t.type,
+      t.occurredOn,
+    ),
   ],
 );
 
+export type User = typeof users.$inferSelect;
+export type NewUser = typeof users.$inferInsert;
+export type Invite = typeof invites.$inferSelect;
+export type NewInvite = typeof invites.$inferInsert;
 export type Transaction = typeof transactions.$inferSelect;
 export type NewTransaction = typeof transactions.$inferInsert;
 export type TransactionType = "income" | "expense";

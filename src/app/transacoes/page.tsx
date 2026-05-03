@@ -5,6 +5,7 @@ import { cn } from "@/lib/utils";
 import { TransactionRow } from "@/components/transaction-row";
 import { TransactionsFilter } from "@/components/transactions-filter";
 import { listTransactions } from "@/server/transactions/repository";
+import { requireUserId } from "@/server/auth/require-user";
 import { distinctBanks, distinctCategories } from "@/server/suggestions";
 import { totals } from "@/server/reports";
 import { formatCents } from "@/lib/money";
@@ -21,7 +22,7 @@ type Search = Promise<{
 }>;
 
 export default async function TransactionsPage({ searchParams }: { searchParams: Search }) {
-  const sp = await searchParams;
+  const [userId, sp] = await Promise.all([requireUserId(), searchParams]);
 
   let from: string | undefined;
   let to: string | undefined;
@@ -35,7 +36,7 @@ export default async function TransactionsPage({ searchParams }: { searchParams:
   }
 
   const [rows, banks, categories] = await Promise.all([
-    listTransactions({
+    listTransactions(userId, {
       from,
       to,
       type: sp.type === "income" || sp.type === "expense" ? sp.type : undefined,
@@ -43,8 +44,8 @@ export default async function TransactionsPage({ searchParams }: { searchParams:
       bank: sp.bank,
       search: sp.q,
     }),
-    distinctBanks(),
-    distinctCategories(),
+    distinctBanks(userId),
+    distinctCategories(userId),
   ]);
 
   const t = totals(rows);

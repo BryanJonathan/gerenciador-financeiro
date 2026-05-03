@@ -3,6 +3,7 @@ import { TrendLine } from "@/components/charts/trend-line";
 import { KpiCard } from "@/components/kpi-card";
 import { MonthPicker } from "@/components/month-picker";
 import { listTransactions } from "@/server/transactions/repository";
+import { requireUserId } from "@/server/auth/require-user";
 import {
   byBank,
   byCategory,
@@ -26,7 +27,7 @@ export const dynamic = "force-dynamic";
 type Search = Promise<{ month?: string }>;
 
 export default async function ReportsPage({ searchParams }: { searchParams: Search }) {
-  const sp = await searchParams;
+  const [userId, sp] = await Promise.all([requireUserId(), searchParams]);
   const current = currentYearMonth();
   let year = current.year;
   let month = current.month;
@@ -45,9 +46,9 @@ export default async function ReportsPage({ searchParams }: { searchParams: Sear
   const trendEnd = monthRange(trendLast.year, trendLast.month).to;
 
   const [monthRows, trendRows, ytdRows] = await Promise.all([
-    listTransactions({ from, to }),
-    listTransactions({ from: trendStart, to: trendEnd }),
-    listTransactions({ from: startOfYear(year), to: endOfYear(year) }),
+    listTransactions(userId, { from, to }),
+    listTransactions(userId, { from: trendStart, to: trendEnd }),
+    listTransactions(userId, { from: startOfYear(year), to: endOfYear(year) }),
   ]);
 
   const t = totals(monthRows);

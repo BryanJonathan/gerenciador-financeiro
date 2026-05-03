@@ -7,6 +7,7 @@ import { TransactionRow } from "@/components/transaction-row";
 import { CategoryDonut } from "@/components/charts/category-donut";
 import { DailyBar } from "@/components/charts/daily-bar";
 import { listTransactions } from "@/server/transactions/repository";
+import { requireUserId } from "@/server/auth/require-user";
 import { byCategory, dailyExpense, totals } from "@/server/reports";
 import { currentYearMonth, monthLabel, monthRange } from "@/lib/dates";
 import { capitalize } from "@/lib/format";
@@ -15,12 +16,13 @@ import { formatCents } from "@/lib/money";
 export const dynamic = "force-dynamic";
 
 export default async function DashboardPage() {
+  const userId = await requireUserId();
   const { year, month } = currentYearMonth();
   const { from, to } = monthRange(year, month);
 
   const [monthRows, recent] = await Promise.all([
-    listTransactions({ from, to, orderBy: "occurred_on_desc" }),
-    listTransactions({ orderBy: "created_at_desc", limit: 5 }),
+    listTransactions(userId, { from, to, orderBy: "occurred_on_desc" }),
+    listTransactions(userId, { orderBy: "created_at_desc", limit: 5 }),
   ]);
 
   const t = totals(monthRows);

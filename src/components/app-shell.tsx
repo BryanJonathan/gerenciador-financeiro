@@ -15,6 +15,14 @@ const NAV = [
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
 
+  if (
+    pathname.startsWith("/admin") ||
+    pathname === "/login" ||
+    pathname === "/signup"
+  ) {
+    return <>{children}</>;
+  }
+
   return (
     <div className="flex min-h-screen w-full flex-col md:flex-row">
       <aside className="hidden border-r border-border bg-card md:flex md:w-60 md:shrink-0 md:flex-col">

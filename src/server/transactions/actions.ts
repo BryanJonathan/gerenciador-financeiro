@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { transactionSchema } from "@/lib/validation";
+import { requireUserId } from "@/server/auth/require-user";
 import {
   createTransaction,
   hardDeleteAll,
@@ -24,6 +25,7 @@ function revalidateAll() {
 export async function createTransactionAction(
   raw: unknown,
 ): Promise<ActionResult<{ id: string }>> {
+  const userId = await requireUserId();
   const parsed = transactionSchema.safeParse(raw);
   if (!parsed.success) {
     return {
@@ -32,7 +34,7 @@ export async function createTransactionAction(
       fieldErrors: parsed.error.flatten().fieldErrors as Record<string, string[]>,
     };
   }
-  const row = await createTransaction(parsed.data);
+  const row = await createTransaction(userId, parsed.data);
   revalidateAll();
   return { ok: true, data: { id: row.id } };
 }
@@ -41,6 +43,7 @@ export async function updateTransactionAction(
   id: string,
   raw: unknown,
 ): Promise<ActionResult<{ id: string }>> {
+  const userId = await requireUserId();
   const parsed = transactionSchema.safeParse(raw);
   if (!parsed.success) {
     return {
@@ -49,7 +52,7 @@ export async function updateTransactionAction(
       fieldErrors: parsed.error.flatten().fieldErrors as Record<string, string[]>,
     };
   }
-  const row = await updateTransaction(id, parsed.data);
+  const row = await updateTransaction(userId, id, parsed.data);
   if (!row) {
     return { ok: false, error: "Transação não encontrada" };
   }
@@ -58,13 +61,15 @@ export async function updateTransactionAction(
 }
 
 export async function deleteTransactionAction(id: string): Promise<ActionResult> {
-  await softDeleteTransaction(id);
+  const userId = await requireUserId();
+  await softDeleteTransaction(userId, id);
   revalidateAll();
   return { ok: true, data: undefined };
 }
 
 export async function restoreTransactionAction(id: string): Promise<ActionResult> {
-  await restoreTransaction(id);
+  const userId = await requireUserId();
+  await restoreTransaction(userId, id);
   revalidateAll();
   return { ok: true, data: undefined };
 }
@@ -73,12 +78,13 @@ export async function renameBankAction(
   from: string,
   to: string,
 ): Promise<ActionResult<{ updated: number }>> {
+  const userId = await requireUserId();
   const trimmedFrom = from.trim().toLowerCase();
   const trimmedTo = to.trim().toLowerCase();
   if (!trimmedFrom || !trimmedTo) {
     return { ok: false, error: "Nome inválido" };
   }
-  const updated = await renameBank(trimmedFrom, trimmedTo);
+  const updated = await renameBank(userId, trimmedFrom, trimmedTo);
   revalidateAll();
   return { ok: true, data: { updated } };
 }
@@ -87,18 +93,20 @@ export async function renameCategoryAction(
   from: string,
   to: string,
 ): Promise<ActionResult<{ updated: number }>> {
+  const userId = await requireUserId();
   const trimmedFrom = from.trim().toLowerCase();
   const trimmedTo = to.trim().toLowerCase();
   if (!trimmedFrom || !trimmedTo) {
     return { ok: false, error: "Nome inválido" };
   }
-  const updated = await renameCategory(trimmedFrom, trimmedTo);
+  const updated = await renameCategory(userId, trimmedFrom, trimmedTo);
   revalidateAll();
   return { ok: true, data: { updated } };
 }
 
 export async function wipeAllAction(): Promise<ActionResult> {
-  await hardDeleteAll();
+  const userId = await requireUserId();
+  await hardDeleteAll(userId);
   revalidateAll();
   return { ok: true, data: undefined };
 }

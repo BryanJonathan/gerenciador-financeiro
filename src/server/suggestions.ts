@@ -2,25 +2,38 @@ import { isNotNull, isNull, sql, and, eq } from "drizzle-orm";
 import { db } from "@/server/db";
 import { transactions } from "@/server/db/schema";
 
-export async function distinctCategories(): Promise<string[]> {
+export async function distinctCategories(userId: string): Promise<string[]> {
   const rows = await db
     .selectDistinct({ value: transactions.category })
     .from(transactions)
-    .where(and(isNull(transactions.deletedAt), isNotNull(transactions.category)))
+    .where(
+      and(
+        eq(transactions.userId, userId),
+        isNull(transactions.deletedAt),
+        isNotNull(transactions.category),
+      ),
+    )
     .orderBy(transactions.category);
   return rows.map((r) => r.value!).filter(Boolean);
 }
 
-export async function distinctBanks(): Promise<string[]> {
+export async function distinctBanks(userId: string): Promise<string[]> {
   const rows = await db
     .selectDistinct({ value: transactions.bank })
     .from(transactions)
-    .where(and(isNull(transactions.deletedAt), isNotNull(transactions.bank)))
+    .where(
+      and(
+        eq(transactions.userId, userId),
+        isNull(transactions.deletedAt),
+        isNotNull(transactions.bank),
+      ),
+    )
     .orderBy(transactions.bank);
   return rows.map((r) => r.value!).filter(Boolean);
 }
 
 export async function mostUsedBankThisPeriod(
+  userId: string,
   from: string,
   to: string,
 ): Promise<string | null> {
@@ -32,6 +45,7 @@ export async function mostUsedBankThisPeriod(
     .from(transactions)
     .where(
       and(
+        eq(transactions.userId, userId),
         isNull(transactions.deletedAt),
         isNotNull(transactions.bank),
         sql`${transactions.occurredOn} >= ${from}`,
@@ -45,6 +59,7 @@ export async function mostUsedBankThisPeriod(
 }
 
 export async function categoryForDescription(
+  userId: string,
   description: string,
 ): Promise<string | null> {
   const trimmed = description.trim().toLowerCase();
@@ -54,6 +69,7 @@ export async function categoryForDescription(
     .from(transactions)
     .where(
       and(
+        eq(transactions.userId, userId),
         isNull(transactions.deletedAt),
         isNotNull(transactions.category),
         eq(sql`lower(${transactions.description})`, trimmed),

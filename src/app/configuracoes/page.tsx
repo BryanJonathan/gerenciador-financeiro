@@ -1,28 +1,44 @@
-import { Download } from "lucide-react";
-import { buttonVariants } from "@/components/ui/button";
+import { Download, LogOut } from "lucide-react";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { RenameItem } from "@/components/rename-vocabulary";
 import { DangerZone } from "@/components/danger-zone";
+import { UserInvitesSection } from "@/components/user-invites";
+import { auth } from "@/auth";
+import { logoutAction } from "@/server/auth/actions";
 import { distinctBanks, distinctCategories } from "@/server/suggestions";
 import { countTransactions } from "@/server/transactions/repository";
+import { listInvites } from "@/server/invites/repository";
+import { requireUserId } from "@/server/auth/require-user";
 import { titleCase } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
 
 export default async function SettingsPage() {
-  const [banks, categories, count] = await Promise.all([
-    distinctBanks(),
-    distinctCategories(),
-    countTransactions(),
+  const userId = await requireUserId();
+  const [session, banks, categories, count, invites] = await Promise.all([
+    auth(),
+    distinctBanks(userId),
+    distinctCategories(userId),
+    countTransactions(userId),
+    listInvites({ userId }),
   ]);
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Configurações</h1>
-        <p className="text-sm text-muted-foreground">
-          {count} transação(ões) ativa(s)
-        </p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight">Configurações</h1>
+          <p className="text-sm text-muted-foreground">
+            {session?.user?.email ?? "—"} · {count} transação(ões) ativa(s)
+          </p>
+        </div>
+        <form action={logoutAction}>
+          <Button type="submit" variant="outline" className="gap-2">
+            <LogOut className="h-4 w-4" />
+            Sair
+          </Button>
+        </form>
       </div>
 
       <section className="rounded-lg border border-border bg-card p-4">
@@ -39,6 +55,8 @@ export default async function SettingsPage() {
           Baixar CSV
         </a>
       </section>
+
+      <UserInvitesSection invites={invites} />
 
       <section className="rounded-lg border border-border bg-card p-4">
         <h2 className="mb-2 text-sm font-medium">Categorias</h2>

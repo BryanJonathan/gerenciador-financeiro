@@ -15,8 +15,8 @@ export type TransactionFilter = {
   limit?: number;
 };
 
-function buildWhere(filter: TransactionFilter) {
-  const conditions = [];
+function buildWhere(userId: string, filter: TransactionFilter) {
+  const conditions = [eq(transactions.userId, userId)];
   if (!filter.includeDeleted) {
     conditions.push(isNull(transactions.deletedAt));
   }
@@ -34,10 +34,11 @@ function buildWhere(filter: TransactionFilter) {
       )!,
     );
   }
-  return conditions.length ? and(...conditions) : undefined;
+  return and(...conditions);
 }
 
 export async function listTransactions(
+  userId: string,
   filter: TransactionFilter = {},
 ): Promise<Transaction[]> {
   const orderBy =
@@ -47,7 +48,7 @@ export async function listTransactions(
         ? [desc(transactions.createdAt)]
         : [desc(transactions.occurredOn), desc(transactions.createdAt)];
 
-  const where = buildWhere(filter);
+  const where = buildWhere(userId, filter);
 
   const baseQuery = db
     .select()
@@ -62,19 +63,26 @@ export async function listTransactions(
   return baseQuery;
 }
 
-export async function findTransactionById(id: string): Promise<Transaction | null> {
+export async function findTransactionById(
+  userId: string,
+  id: string,
+): Promise<Transaction | null> {
   const result = await db
     .select()
     .from(transactions)
-    .where(eq(transactions.id, id))
+    .where(and(eq(transactions.id, id), eq(transactions.userId, userId)))
     .limit(1);
   return result[0] ?? null;
 }
 
-export async function createTransaction(input: TransactionInput): Promise<Transaction> {
+export async function createTransaction(
+  userId: string,
+  input: TransactionInput,
+): Promise<Transaction> {
   const [row] = await db
     .insert(transactions)
     .values({
+      userId,
       type: input.type,
       description: input.description,
       amountCents: input.amountCents,
@@ -88,6 +96,7 @@ export async function createTransaction(input: TransactionInput): Promise<Transa
 }
 
 export async function updateTransaction(
+  userId: string,
   id: string,
   input: TransactionInput,
 ): Promise<Transaction | null> {
@@ -103,49 +112,75 @@ export async function updateTransaction(
       notes: input.notes,
       updatedAt: new Date(),
     })
-    .where(eq(transactions.id, id))
+    .where(and(eq(transactions.id, id), eq(transactions.userId, userId)))
     .returning();
   return row ?? null;
 }
 
-export async function softDeleteTransaction(id: string): Promise<void> {
+export async function softDeleteTransaction(
+  userId: string,
+  id: string,
+): Promise<void> {
   await db
     .update(transactions)
     .set({ deletedAt: new Date() })
-    .where(eq(transactions.id, id));
+    .where(and(eq(transactions.id, id), eq(transactions.userId, userId)));
 }
 
-export async function restoreTransaction(id: string): Promise<void> {
+export async function restoreTransaction(
+  userId: string,
+  id: string,
+): Promise<void> {
   await db
     .update(transactions)
     .set({ deletedAt: null })
-    .where(eq(transactions.id, id));
+    .where(and(eq(transactions.id, id), eq(transactions.userId, userId)));
 }
 
-export async function hardDeleteAll(): Promise<void> {
-  await db.delete(transactions);
+export async function hardDeleteAll(userId: string): Promise<void> {
+  await db.delete(transactions).where(eq(transactions.userId, userId));
 }
 
-export async function renameBank(from: string, to: string): Promise<number> {
+export async function renameBank(
+  userId: string,
+  from: string,
+  to: string,
+): Promise<number> {
   const result = await db
     .update(transactions)
     .set({ bank: to.toLowerCase(), updatedAt: new Date() })
-    .where(eq(transactions.bank, from.toLowerCase()));
+    .where(
+      and(
+        eq(transactions.userId, userId),
+        eq(transactions.bank, from.toLowerCase()),
+      ),
+    );
   return result.rowCount ?? 0;
 }
 
-export async function renameCategory(from: string, to: string): Promise<number> {
+export async function renameCategory(
+  userId: string,
+  from: string,
+  to: string,
+): Promise<number> {
   const result = await db
     .update(transactions)
     .set({ category: to.toLowerCase(), updatedAt: new Date() })
-    .where(eq(transactions.category, from.toLowerCase()));
+    .where(
+      and(
+        eq(transactions.userId, userId),
+        eq(transactions.category, from.toLowerCase()),
+      ),
+    );
   return result.rowCount ?? 0;
 }
 
-export async function countTransactions(): Promise<number> {
+export async function countTransactions(userId: string): Promise<number> {
   const result = await db
     .select({ count: sql<number>`count(*)::int` })
     .from(transactions)
-    .where(isNull(transactions.deletedAt));
+    .where(
+      and(eq(transactions.userId, userId), isNull(transactions.deletedAt)),
+    );
   return result[0]?.count ?? 0;
 }

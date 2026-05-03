@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { listTransactions } from "@/server/transactions/repository";
+import { requireUserId } from "@/server/auth/require-user";
 import { formatCentsPlain } from "@/lib/money";
 import { formatDateBR } from "@/lib/dates";
 
@@ -13,7 +14,8 @@ function csvEscape(value: string | null | undefined): string {
 }
 
 export async function GET() {
-  const rows = await listTransactions({ orderBy: "occurred_on_desc" });
+  const userId = await requireUserId();
+  const rows = await listTransactions(userId, { orderBy: "occurred_on_desc" });
 
   const header = ["Data", "Tipo", "Descrição", "Valor (R$)", "Banco", "Categoria", "Notas"];
   const lines = [header.join(";")];
